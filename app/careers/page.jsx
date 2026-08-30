@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { 
   ArrowRight, MapPin, Clock, Briefcase, Heart, Globe, 
   GraduationCap, Zap, Users, Coffee, Plane, ShieldCheck,
-  Search, Filter, ChevronDown, X, CheckCircle, Upload
+  Search, Filter, ChevronDown, X, CheckCircle, Upload, Loader2
 } from 'lucide-react'
 import ScrollReveal from '@/components/ScrollReveal'
 
@@ -44,6 +44,15 @@ export default function CareersPage() {
   const [selectedJob, setSelectedJob] = useState(null)
   const [isSubmitted, setIsSubmitted] = useState(false)
 
+  // Form & File Upload State
+  const fileInputRef = useRef(null)
+  const [selectedFile, setSelectedFile] = useState(null)
+  const [resumeUrl, setResumeUrl] = useState('')
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
+
   const filteredJobs = jobs.filter((job) => {
     const matchDept = selectedDept === 'All' || job.department === selectedDept
     const matchLoc = selectedLocation === 'All Locations' || job.location === selectedLocation
@@ -52,13 +61,64 @@ export default function CareersPage() {
     return matchDept && matchLoc && matchSearch
   })
 
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    setSelectedFile(file)
+    setIsUploading(true)
+    setUploadError('')
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setResumeUrl(data.url)
+      } else {
+        setUploadError(data.error || 'Failed to upload resume')
+      }
+    } catch (err) {
+      setUploadError('An error occurred during upload. Please try again.')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
   const handleSubmit = (e) => {
     e.preventDefault()
+    if (!resumeUrl && selectedFile) {
+      setUploadError('Please wait for the resume to finish uploading.')
+      return
+    }
+
     setIsSubmitted(true)
     setTimeout(() => {
       setIsSubmitted(false)
       setSelectedJob(null)
+      setSelectedFile(null)
+      setResumeUrl('')
+      setFullName('')
+      setEmail('')
+      setUploadError('')
     }, 2500)
+  }
+
+  const resetModalState = () => {
+    setSelectedJob(null)
+    setSelectedFile(null)
+    setResumeUrl('')
+    setFullName('')
+    setEmail('')
+    setUploadError('')
+    setIsUploading(false)
   }
 
   return (
@@ -271,7 +331,7 @@ export default function CareersPage() {
                 <p className="text-xs text-slate-400">{selectedJob.department} • {selectedJob.location}</p>
               </div>
               <button 
-                onClick={() => setSelectedJob(null)}
+                onClick={resetModalState}
                 className="text-slate-400 hover:text-white transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -290,22 +350,65 @@ export default function CareersPage() {
               <form onSubmit={handleSubmit} className="p-6 space-y-4">
                 <div>
                   <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Full Name</label>
-                  <input required type="text" placeholder="John Doe" className="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-accent" />
+                  <input 
+                    required 
+                    type="text" 
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="John Doe" 
+                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-accent" 
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Email Address</label>
-                  <input required type="email" placeholder="john@example.com" className="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-accent" />
+                  <input 
+                    required 
+                    type="email" 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="john@example.com" 
+                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-accent" 
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Resume / CV</label>
-                  <div className="border-2 border-dashed border-slate-200 rounded-lg p-4 text-center cursor-pointer hover:border-accent transition-colors">
-                    <Upload className="w-6 h-6 text-slate-400 mx-auto mb-1" />
-                    <span className="text-xs text-slate-500">Click to upload PDF or DOCX (Max 5MB)</span>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    accept=".pdf,.doc,.docx"
+                    className="hidden"
+                  />
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-slate-200 rounded-lg p-4 text-center cursor-pointer hover:border-accent transition-colors"
+                  >
+                    {isUploading ? (
+                      <div className="flex flex-col items-center gap-1">
+                        <Loader2 className="w-6 h-6 text-accent animate-spin mx-auto" />
+                        <span className="text-xs text-accent font-medium">Uploading to Cloudinary...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <Upload className="w-6 h-6 text-slate-400 mx-auto mb-1" />
+                        <span className="text-xs text-slate-500">
+                          {selectedFile ? (
+                            <span className="text-accent font-medium">{selectedFile.name}</span>
+                          ) : (
+                            'Click to upload PDF or DOCX (Max 5MB)'
+                          )}
+                        </span>
+                      </>
+                    )}
                   </div>
+                  {uploadError && (
+                    <p className="text-xs text-red-500 mt-1">{uploadError}</p>
+                  )}
                 </div>
                 <button 
                   type="submit" 
-                  className="w-full py-3 rounded-xl bg-accent hover:bg-cyan-600 text-white font-semibold transition-all shadow-md shadow-accent/20"
+                  disabled={isUploading}
+                  className="w-full py-3 rounded-xl bg-accent hover:bg-cyan-600 text-white font-semibold transition-all shadow-md shadow-accent/20 disabled:opacity-50"
                 >
                   Submit Application
                 </button>
