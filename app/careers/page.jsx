@@ -386,7 +386,7 @@ export default function CareersPage() {
                     {isUploading ? (
                       <div className="flex flex-col items-center gap-1">
                         <Loader2 className="w-6 h-6 text-accent animate-spin mx-auto" />
-                        <span className="text-xs text-accent font-medium">Uploading to Cloudinary...</span>
+                        <span className="text-xs text-accent font-medium">Uploading resume...</span>
                       </div>
                     ) : (
                       <>
