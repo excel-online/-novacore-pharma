@@ -18,7 +18,7 @@ export async function POST(request) {
       )
     }
 
-    // Save Application to Database
+    // Save Application to MongoDB
     const application = await Application.create({
       fullName: fullName.trim(),
       email: email.trim().toLowerCase(),
@@ -28,37 +28,44 @@ export async function POST(request) {
       coverLetter: coverLetter?.trim() || '',
     })
 
-    // Send Email Notification via Resend
-    const { data, error } = await resend.emails.send({
-      from: 'Novacore Applications <onboarding@resend.dev>',
-      to: process.env.EMAIL_TO,
-      replyTo: email.trim(),
-      subject: `New Job Application: ${fullName.trim()} - ${position || 'General'}`,
-      html: `
-        <h2>New Job Application Received</h2>
-        <p><strong>Applicant Name:</strong> ${fullName.trim()}</p>
-        <p><strong>Email:</strong> ${email.trim()}</p>
-        <p><strong>Phone:</strong> ${phone?.trim() || 'N/A'}</p>
-        <p><strong>Position:</strong> ${position || 'General'}</p>
-        <p><strong>Resume URL:</strong> <a href="${resumeUrl}">${resumeUrl}</a></p>
-        <br/>
-        <p><strong>Cover Letter:</strong></p>
-        <p>${coverLetter ? coverLetter.trim().replace(/\n/g, '<br/>') : 'None provided'}</p>
-      `,
-    })
+    // Safely attempt email dispatch
+    try {
+      if (process.env.RESEND_API_KEY && process.env.EMAIL_TO) {
+        const { error } = await resend.emails.send({
+          from: 'onboarding@resend.dev',
+          to: process.env.EMAIL_TO,
+          replyTo: email.trim(),
+          subject: `New Application: ${fullName.trim()} - ${position || 'General'}`,
+          html: `
+            <h2>New Job Application Received</h2>
+            <p><strong>Applicant Name:</strong> ${fullName.trim()}</p>
+            <p><strong>Email:</strong> ${email.trim()}</p>
+            <p><strong>Phone:</strong> ${phone?.trim() || 'N/A'}</p>
+            <p><strong>Position:</strong> ${position || 'General'}</p>
+            <p><strong>Resume URL:</strong> <a href="${resumeUrl}">${resumeUrl}</a></p>
+            <br/>
+            <p><strong>Cover Letter:</strong></p>
+            <p>${coverLetter ? coverLetter.trim().replace(/\n/g, '<br/>') : 'None provided'}</p>
+          `,
+        })
 
-    if (error) {
-      console.error('Resend Application Email Error:', error)
+        if (error) {
+          console.error('Resend Delivery Failed:', error)
+        }
+      }
+    } catch (emailErr) {
+      console.error('Email sending exception:', emailErr)
     }
 
+    // Always return success if DB record was saved
     return NextResponse.json(
       { success: true, message: 'Application submitted successfully!', data: { id: application._id } },
       { status: 201 }
     )
   } catch (error) {
-    console.error('Application API Error:', error)
+    console.error('Application API Fatal Error:', error)
     return NextResponse.json(
-      { success: false, message: 'Failed to submit application.' },
+      { success: false, message: error.message || 'Failed to submit application.' },
       { status: 500 }
     )
   }
