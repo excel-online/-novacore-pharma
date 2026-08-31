@@ -1,54 +1,65 @@
-import { NextResponse } from 'next/server';
-import mongoose from 'mongoose';
+import { NextResponse } from 'next/server'
+import { Resend } from 'resend'
+import connectDB from '@/lib/mongodb'
+import Application from '@/models/Application'
 
-// Connect to MongoDB
-const connectDB = async () => {
-  if (mongoose.connections[0].readyState) return;
-  await mongoose.connect(process.env.MONGODB_URI);
-};
+const resend = new Resend(process.env.RESEND_API_KEY)
 
-// Application Schema & Model
-const ApplicationSchema = new mongoose.Schema({
-  fullName: { type: String, required: true },
-  email: { type: String, required: true },
-  resumeUrl: { type: String, required: true },
-  jobTitle: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now }
-});
-
-const Application = mongoose.models.Application || mongoose.model('Application', ApplicationSchema);
-
-// POST: Save new job application
 export async function POST(request) {
   try {
-    const { fullName, email, resumeUrl, jobTitle } = await request.json();
+    await connectDB()
+    const body = await request.json()
+    const { fullName, email, phone, position, resumeUrl, coverLetter } = body
 
     if (!fullName || !email || !resumeUrl) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: 'Full name, email, and resume are required.' },
+        { status: 400 }
+      )
     }
 
-    await connectDB();
-    const newApplication = await Application.create({
-      fullName,
-      email,
-      resumeUrl,
-      jobTitle: jobTitle || 'General Application'
-    });
+    // Save Application to Database
+    const application = await Application.create({
+      fullName: fullName.trim(),
+      email: email.trim().toLowerCase(),
+      phone: phone?.trim() || '',
+      position: position?.trim() || 'General Application',
+      resumeUrl: resumeUrl.trim(),
+      coverLetter: coverLetter?.trim() || '',
+    })
 
-    return NextResponse.json({ success: true, data: newApplication }, { status: 201 });
-  } catch (error) {
-    console.error('Application Submission Error:', error);
-    return NextResponse.json({ error: 'Failed to submit application' }, { status: 500 });
-  }
-}
+    // Send Email Notification via Resend
+    const { data, error } = await resend.emails.send({
+      from: 'Novacore Applications <onboarding@resend.dev>',
+      to: process.env.EMAIL_TO,
+      replyTo: email.trim(),
+      subject: `New Job Application: ${fullName.trim()} - ${position || 'General'}`,
+      html: `
+        <h2>New Job Application Received</h2>
+        <p><strong>Applicant Name:</strong> ${fullName.trim()}</p>
+        <p><strong>Email:</strong> ${email.trim()}</p>
+        <p><strong>Phone:</strong> ${phone?.trim() || 'N/A'}</p>
+        <p><strong>Position:</strong> ${position || 'General'}</p>
+        <p><strong>Resume URL:</strong> <a href="${resumeUrl}">${resumeUrl}</a></p>
+        <br/>
+        <p><strong>Cover Letter:</strong></p>
+        <p>${coverLetter ? coverLetter.trim().replace(/\n/g, '<br/>') : 'None provided'}</p>
+      `,
+    })
 
-// GET: Retrieve all applications (for viewing submissions)
-export async function GET() {
-  try {
-    await connectDB();
-    const applications = await Application.find({}).sort({ createdAt: -1 });
-    return NextResponse.json({ success: true, data: applications }, { status: 200 });
+    if (error) {
+      console.error('Resend Application Email Error:', error)
+    }
+
+    return NextResponse.json(
+      { success: true, message: 'Application submitted successfully!', data: { id: application._id } },
+      { status: 201 }
+    )
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch applications' }, { status: 500 });
+    console.error('Application API Error:', error)
+    return NextResponse.json(
+      { success: false, message: 'Failed to submit application.' },
+      { status: 500 }
+    )
   }
 }
