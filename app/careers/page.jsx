@@ -92,23 +92,54 @@ export default function CareersPage() {
     }
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (!resumeUrl && selectedFile) {
       setUploadError('Please wait for the resume to finish uploading.')
       return
     }
 
-    setIsSubmitted(true)
-    setTimeout(() => {
-      setIsSubmitted(false)
-      setSelectedJob(null)
-      setSelectedFile(null)
-      setResumeUrl('')
-      setFullName('')
-      setEmail('')
-      setUploadError('')
-    }, 2500)
+    if (!resumeUrl) {
+      setUploadError('Please upload your resume before submitting.')
+      return
+    }
+
+    setIsUploading(true)
+    setUploadError('')
+
+    try {
+      const response = await fetch('/api/applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName,
+          email,
+          resumeUrl,
+          jobTitle: selectedJob?.title || 'General Application',
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to submit application')
+      }
+
+      setIsSubmitted(true)
+      setTimeout(() => {
+        setIsSubmitted(false)
+        setSelectedJob(null)
+        setSelectedFile(null)
+        setResumeUrl('')
+        setFullName('')
+        setEmail('')
+        setUploadError('')
+      }, 2500)
+    } catch (err) {
+      setUploadError(err.message || 'An error occurred during submission.')
+    } finally {
+      setIsUploading(false)
+    }
   }
 
   const resetModalState = () => {
@@ -408,8 +439,9 @@ export default function CareersPage() {
                 <button 
                   type="submit" 
                   disabled={isUploading}
-                  className="w-full py-3 rounded-xl bg-accent hover:bg-cyan-600 text-white font-semibold transition-all shadow-md shadow-accent/20 disabled:opacity-50"
+                  className="w-full py-3 rounded-xl bg-accent hover:bg-cyan-600 text-white font-semibold transition-all shadow-md shadow-accent/20 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
+                  {isUploading && <Loader2 className="w-4 h-4 animate-spin" />}
                   Submit Application
                 </button>
               </form>
