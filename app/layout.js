@@ -2,6 +2,7 @@ import './globals.css'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import CookieBanner from '@/components/CookieBanner'
+import SmartsuppScript from '@/components/SmartsuppScript'
 
 export const metadata = {
   metadataBase: new URL('https://novacore-pharma.vercel.app'),
@@ -39,6 +40,7 @@ export default function RootLayout({ children }) {
         <main className="flex-1">{children}</main>
         <Footer />
         <CookieBanner />
+        <SmartsuppScript />
       </body>
     </html>
   )
