@@ -52,6 +52,8 @@ export default function CareersPage() {
   const [uploadError, setUploadError] = useState('')
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [portfolioUrl, setPortfolioUrl] = useState('')
 
   const filteredJobs = jobs.filter((job) => {
     const matchDept = selectedDept === 'All' || job.department === selectedDept
@@ -114,26 +116,23 @@ export default function CareersPage() {
         body: JSON.stringify({
           fullName,
           email,
+          phone,
           resumeUrl,
-          jobTitle: selectedJob?.title || 'General Application',
+          portfolioUrl,
+          position: selectedJob?.title || 'General Application',
         }),
       })
 
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to submit application')
+        throw new Error(data.message || data.error || 'Failed to submit application')
       }
 
       setIsSubmitted(true)
       setTimeout(() => {
         setIsSubmitted(false)
-        setSelectedJob(null)
-        setSelectedFile(null)
-        setResumeUrl('')
-        setFullName('')
-        setEmail('')
-        setUploadError('')
+        resetModalState()
       }, 2500)
     } catch (err) {
       setUploadError(err.message || 'An error occurred during submission.')
@@ -148,6 +147,8 @@ export default function CareersPage() {
     setResumeUrl('')
     setFullName('')
     setEmail('')
+    setPhone('')
+    setPortfolioUrl('')
     setUploadError('')
     setIsUploading(false)
   }
@@ -390,14 +391,39 @@ export default function CareersPage() {
                     className="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-accent" 
                   />
                 </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Email Address</label>
+                    <input 
+                      required 
+                      type="email" 
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="john@example.com" 
+                      className="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-accent" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Phone Number</label>
+                    <input 
+                      required 
+                      type="tel" 
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+1 (555) 000-0000" 
+                      className="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-accent" 
+                    />
+                  </div>
+                </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Email Address</label>
+                  <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">
+                    LinkedIn / Portfolio URL <span className="text-slate-400 font-normal">(Optional)</span>
+                  </label>
                   <input 
-                    required 
-                    type="email" 
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="john@example.com" 
+                    type="url" 
+                    value={portfolioUrl}
+                    onChange={(e) => setPortfolioUrl(e.target.value)}
+                    placeholder="https://linkedin.com/in/username" 
                     className="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-accent" 
                   />
                 </div>
@@ -439,7 +465,7 @@ export default function CareersPage() {
                 <button 
                   type="submit" 
                   disabled={isUploading}
-                  className="w-full py-3 rounded-xl bg-accent hover:bg-cyan-600 text-white font-semibold transition-all shadow-md shadow-accent/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full py-3 rounded-xl bg-accent hover:bg-cyan-600 text-white font-semibold transition-all shadow-md shadow-accent/20 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {isUploading && <Loader2 className="w-4 h-4 animate-spin" />}
                   Submit Application
