@@ -18,12 +18,13 @@ export async function POST(request) {
       )
     }
 
-    // Save Application to MongoDB
+    // Save Application to MongoDB (mapped jobTitle to fix schema validation)
     const application = await Application.create({
       fullName: fullName.trim(),
       email: email.trim().toLowerCase(),
       phone: phone?.trim() || '',
       position: position?.trim() || 'General Application',
+      jobTitle: position?.trim() || 'General Application',
       resumeUrl: resumeUrl.trim(),
       coverLetter: coverLetter?.trim() || '',
     })
